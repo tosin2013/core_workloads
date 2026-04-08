@@ -30,7 +30,7 @@ ocp4_workload_agent_sno_vms_memory: "32Gi"
 ocp4_workload_agent_sno_vms_disk_size: "120Gi"
 
 # Storage class for VM disks
-ocp4_workload_agent_sno_vms_storage_class: "ocs-external-storagecluster-ceph-rbd"
+ocp4_workload_agent_sno_vms_storage_class: "ocs-external-storagecluster-ceph-rbd-immediate"
 
 # ===========================
 # OpenShift Configuration
