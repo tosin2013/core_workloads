@@ -1,0 +1,19 @@
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+{% if install_operator_catalogsource_name | default("") | length > 0 %}
+  name: {{ install_operator_catalogsource_name }}
+{% else %}
+  name: {{ install_operator_name }}-catalogsource
+{% endif %}
+  namespace: {{ install_operator_catalogsource_namespace }}
+spec:
+  sourceType: grpc
+  image: {{ install_operator_catalogsource_image }}:{{ install_operator_catalogsource_image_tag }}
+  displayName: {{ install_operator_catalogsource_name }}
+  publisher: Red Hat AgnosticD
+  priority: {{ install_operator_catalogsource_priority | int }}
+{% if install_operator_catalogsource_pullsecrets | length > 0 %}
+  secrets: {{ install_operator_catalogsource_pullsecrets | to_json }}
+{% endif %}

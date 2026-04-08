@@ -1,0 +1,19 @@
+---
+# Test SNO workload deployment on target cluster
+# Usage: ansible-playbook test_sno_deployment.yml
+
+- name: Test SNO workload deployment
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  become: false
+  vars:
+    ACTION: provision
+
+  tasks:
+  - name: Run ocp4_workload_agent_sno_vms
+    ansible.builtin.include_role:
+      name: ocp4_workload_agent_sno_vms
+    vars:
+      ocp4_workload_agent_sno_vms_username: "test1"
+      # All other settings use defaults or auto-detection

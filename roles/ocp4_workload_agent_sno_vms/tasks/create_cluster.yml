@@ -106,9 +106,9 @@
   - r_agent_known.resources[0].status.debugInfo.state is defined
   - r_agent_known.resources[0].status.debugInfo.state in ["known", "known-unbound", "insufficient"]
 
-- name: Extract machine network CIDR for {{ _cluster_name }}
+- name: Extract IP address from first Agent for {{ _cluster_name }}
   ansible.builtin.set_fact:
-    _machine_network_cidr: >-
+    _agent_ip: >-
       {{
         r_agent_known.resources[0].status.inventory.interfaces
         | selectattr('ipV4Addresses', 'defined')
@@ -121,6 +121,13 @@
   - ocp4_workload_agent_sno_vms_machine_network_cidr | length == 0
   - r_agent_known.resources[0].status.inventory is defined
   - r_agent_known.resources[0].status.inventory.interfaces is defined
+
+- name: Calculate network CIDR from Agent IP for {{ _cluster_name }}
+  ansible.builtin.set_fact:
+    _machine_network_cidr: "{{ _agent_ip | ansible.utils.ipaddr('network/prefix') }}"
+  when:
+  - ocp4_workload_agent_sno_vms_machine_network_cidr | length == 0
+  - _agent_ip is defined
 
 - name: Use provided machine network CIDR for {{ _cluster_name }}
   ansible.builtin.set_fact:
