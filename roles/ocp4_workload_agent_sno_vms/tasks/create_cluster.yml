@@ -104,7 +104,7 @@
   - r_agent_known.resources[0].status is defined
   - r_agent_known.resources[0].status.debugInfo is defined
   - r_agent_known.resources[0].status.debugInfo.state is defined
-  - r_agent_known.resources[0].status.debugInfo.state in ["known", "insufficient"]
+  - r_agent_known.resources[0].status.debugInfo.state in ["known", "known-unbound", "insufficient"]
 
 - name: Extract machine network CIDR for {{ _cluster_name }}
   ansible.builtin.set_fact:
