@@ -1,0 +1,98 @@
+---
+# ===========================
+# Workshop Configuration
+# ===========================
+
+# Single user mode: set username
+ocp4_workload_agent_compact_vms_username: ""
+
+# Multi-user mode: set user_count and user_base
+ocp4_workload_agent_compact_vms_user_count: ""
+ocp4_workload_agent_compact_vms_user_base: "user"
+
+# Workshop name for labeling
+ocp4_workload_agent_compact_vms_workshop_name: "compact-workshop"
+
+# Namespace for all compact clusters
+ocp4_workload_agent_compact_vms_namespace: "agent-compact-vms"
+
+# ===========================
+# Virtual Machine Resources
+# ===========================
+
+# CPU cores per compact node (3 nodes total per cluster)
+ocp4_workload_agent_compact_vms_vcpu: 4
+
+# Memory per compact node (3 nodes total per cluster)
+ocp4_workload_agent_compact_vms_memory: "16Gi"
+
+# Disk size per compact node
+ocp4_workload_agent_compact_vms_disk_size: "120Gi"
+
+# Storage class for VM disks
+ocp4_workload_agent_compact_vms_storage_class: "ocs-external-storagecluster-ceph-rbd"
+
+# ===========================
+# OpenShift Configuration
+# ===========================
+
+# OpenShift version (e.g., "4.19", "4.18", "4.21")
+ocp4_workload_agent_compact_vms_openshift_version: "4.19"
+
+# Pull secret (JSON from cloud.redhat.com/openshift/install/pull-secret)
+# If empty, will be extracted from hub cluster (openshift-config/pull-secret)
+ocp4_workload_agent_compact_vms_pullsecret: ""
+
+# SSH public key for cluster access
+# If empty, will use or generate key at ~/.ssh/id_rsa.pub
+ocp4_workload_agent_compact_vms_ssh_public_key: ""
+
+# Base domain for cluster DNS
+# If set to "example.com", will be auto-detected from hub cluster ingress
+ocp4_workload_agent_compact_vms_base_domain: "example.com"
+
+# ===========================
+# Network Configuration
+# ===========================
+
+# Cluster network CIDR
+ocp4_workload_agent_compact_vms_cluster_network_cidr: "10.128.0.0/14"
+
+# Service network CIDR
+ocp4_workload_agent_compact_vms_service_network_cidr: "172.30.0.0/16"
+
+# Machine network CIDR (auto-detected from Agent inventory if empty)
+ocp4_workload_agent_compact_vms_machine_network_cidr: ""
+
+# ===========================
+# Prerequisites
+# ===========================
+
+# Install OpenShift Virtualization if not present
+ocp4_workload_agent_compact_vms_install_cnv: true
+
+# CNV operator channel
+ocp4_workload_agent_compact_vms_cnv_channel: "stable"
+
+# Install RHACM if not present
+ocp4_workload_agent_compact_vms_install_rhacm: true
+
+# RHACM operator channel
+ocp4_workload_agent_compact_vms_rhacm_channel: "release-2.14"
+
+# ===========================
+# Features
+# ===========================
+
+# Auto-register clusters as ManagedClusters in RHACM
+ocp4_workload_agent_compact_vms_auto_register_managedcluster: true
+
+# ===========================
+# Timeouts
+# ===========================
+
+# Agent discovery timeout (seconds)
+ocp4_workload_agent_compact_vms_agent_discovery_timeout: 600
+
+# Cluster installation timeout (seconds)
+ocp4_workload_agent_compact_vms_installation_timeout: 3600

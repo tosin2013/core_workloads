@@ -1,0 +1,24 @@
+apiVersion: hive.openshift.io/v1
+kind: ClusterDeployment
+metadata:
+  name: {{ _cluster_name }}
+  namespace: {{ ocp4_workload_agent_sno_vms_namespace }}
+  labels:
+    cluster-name: {{ _cluster_name }}
+    workload: agent-sno-vms
+    workshop: {{ ocp4_workload_agent_sno_vms_workshop_name }}
+spec:
+  baseDomain: {{ ocp4_workload_agent_sno_vms_base_domain }}
+  clusterName: {{ _cluster_name }}
+  platform:
+    agentBareMetal:
+      agentSelector:
+        matchLabels:
+          cluster-name: {{ _cluster_name }}
+  clusterInstallRef:
+    group: extensions.hive.openshift.io
+    kind: AgentClusterInstall
+    name: {{ _cluster_name }}
+    version: v1beta1
+  pullSecretRef:
+    name: pullsecret-{{ _cluster_name }}

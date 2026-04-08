@@ -1,0 +1,143 @@
+---
+# -------------------------------------------------------------------------
+# Install OpenShift Virtualization and RHACM if not already present
+# -------------------------------------------------------------------------
+
+- name: Check if OpenShift Virtualization is installed
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: hco-operatorhub
+    namespace: openshift-cnv
+  register: r_cnv_subscription
+  failed_when: false
+
+- name: Install OpenShift Virtualization operator
+  when:
+  - ocp4_workload_agent_compact_vms_install_cnv | bool
+  - r_cnv_subscription.resources | length == 0
+  block:
+  - name: Install CNV operator via install_operator role
+    ansible.builtin.include_role:
+      name: install_operator
+    vars:
+      install_operator_action: install
+      install_operator_name: kubevirt-hyperconverged
+      install_operator_namespace: openshift-cnv
+      install_operator_channel: "{{ ocp4_workload_agent_compact_vms_cnv_channel }}"
+      install_operator_catalog: redhat-operators
+      install_operator_automatic_install_plan_approval: true
+      install_operator_starting_csv: ""
+      install_operator_manage_namespaces:
+      - openshift-cnv
+      install_operator_catalogsource_setup: false
+
+  - name: Wait for HyperConverged CRD to be available
+    kubernetes.core.k8s_info:
+      api_version: apiextensions.k8s.io/v1
+      kind: CustomResourceDefinition
+      name: hyperconvergeds.hco.kubevirt.io
+    register: r_hco_crd
+    retries: 30
+    delay: 10
+    until:
+    - r_hco_crd.resources | length > 0
+
+  - name: Create HyperConverged instance
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: hco.kubevirt.io/v1beta1
+        kind: HyperConverged
+        metadata:
+          name: kubevirt-hyperconverged
+          namespace: openshift-cnv
+        spec:
+          featureGates:
+            enableCommonBootImageImport: true
+
+  - name: Wait for HyperConverged to be available
+    kubernetes.core.k8s_info:
+      api_version: hco.kubevirt.io/v1beta1
+      kind: HyperConverged
+      name: kubevirt-hyperconverged
+      namespace: openshift-cnv
+    register: r_hco
+    retries: 60
+    delay: 30
+    until:
+    - r_hco.resources | length > 0
+    - r_hco.resources[0].status is defined
+    - r_hco.resources[0].status.conditions is defined
+    - r_hco.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | list | length > 0
+    - (r_hco.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | first).status == "True"
+
+- name: Check if RHACM is installed
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: advanced-cluster-management
+    namespace: open-cluster-management
+  register: r_rhacm_subscription
+  failed_when: false
+
+- name: Install RHACM operator
+  when:
+  - ocp4_workload_agent_compact_vms_install_rhacm | bool
+  - r_rhacm_subscription.resources | length == 0
+  block:
+  - name: Install RHACM operator via install_operator role
+    ansible.builtin.include_role:
+      name: install_operator
+    vars:
+      install_operator_action: install
+      install_operator_name: advanced-cluster-management
+      install_operator_namespace: open-cluster-management
+      install_operator_channel: "{{ ocp4_workload_agent_compact_vms_rhacm_channel }}"
+      install_operator_catalog: redhat-operators
+      install_operator_automatic_install_plan_approval: true
+      install_operator_starting_csv: ""
+      install_operator_manage_namespaces:
+      - open-cluster-management
+      install_operator_catalogsource_setup: false
+
+  - name: Wait for MultiClusterHub CRD to be available
+    kubernetes.core.k8s_info:
+      api_version: apiextensions.k8s.io/v1
+      kind: CustomResourceDefinition
+      name: multiclusterhubs.operator.open-cluster-management.io
+    register: r_mch_crd
+    retries: 30
+    delay: 10
+    until:
+    - r_mch_crd.resources | length > 0
+
+  - name: Create MultiClusterHub instance
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: operator.open-cluster-management.io/v1
+        kind: MultiClusterHub
+        metadata:
+          name: multiclusterhub
+          namespace: open-cluster-management
+        spec: {}
+
+  - name: Wait for MultiClusterHub to be running
+    kubernetes.core.k8s_info:
+      api_version: operator.open-cluster-management.io/v1
+      kind: MultiClusterHub
+      name: multiclusterhub
+      namespace: open-cluster-management
+    register: r_mch
+    retries: 120
+    delay: 30
+    until:
+    - r_mch.resources | length > 0
+    - r_mch.resources[0].status is defined
+    - r_mch.resources[0].status.phase is defined
+    - r_mch.resources[0].status.phase == "Running"
+
+- name: Prerequisites installation complete
+  ansible.builtin.debug:
+    msg: "OpenShift Virtualization and RHACM are ready"

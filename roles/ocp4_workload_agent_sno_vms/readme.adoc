@@ -1,0 +1,167 @@
+= ocp4_workload_agent_sno_vms - Deploy SNO clusters as VMs via RHACM Agent installation
+
+== Overview
+
+This workload deploys Single Node OpenShift (SNO) clusters as VirtualMachines on OpenShift Virtualization using RHACM Agent-based installation. It is designed for workshop and lab environments where cost-effective multi-cluster demonstrations are needed.
+
+== Prerequisites
+
+* OpenShift 4.12+ cluster with cluster-admin access
+* Sufficient resources for VMs (8 cores / 32Gi memory per SNO cluster)
+* Storage class available for VM disks
+
+The workload will automatically install:
+
+* OpenShift Virtualization (CNV) operator if not present
+* Red Hat Advanced Cluster Management (RHACM) if not present
+
+== Key Features
+
+* **Single or multi-user workshops**: Deploy one SNO cluster or multiple clusters for workshop users
+* **Automatic Agent discovery**: VMs boot from InfraEnv ISO and auto-register as Agents
+* **Dynamic network detection**: Machine network CIDR auto-detected from Agent inventory
+* **Complete automation**: End-to-end cluster deployment with minimal configuration
+* **Cost-effective**: 90%+ cost savings vs cloud-based SNO instances
+
+== Required Variables
+
+[source,yaml]
+----
+# User configuration (required - one of these)
+ocp4_workload_agent_sno_vms_username: "user1"  # Single user
+
+# OR
+ocp4_workload_agent_sno_vms_user_count: 10     # Multi-user workshop
+ocp4_workload_agent_sno_vms_user_base: "user"
+----
+
+== Auto-Detected Configuration
+
+The following values are automatically extracted from the hub cluster if not provided:
+
+* **Pull secret**: Extracted from `openshift-config/pull-secret`
+* **SSH key**: Uses or generates `~/.ssh/id_rsa.pub`
+* **Base domain**: Derived from cluster ingress configuration
+
+You can override any of these by explicitly setting them:
+
+[source,yaml]
+----
+# Optional overrides
+ocp4_workload_agent_sno_vms_pullsecret: '{"auths": {...}}'
+ocp4_workload_agent_sno_vms_ssh_public_key: "ssh-rsa AAAA..."
+ocp4_workload_agent_sno_vms_base_domain: "custom.example.com"
+----
+
+== Optional Variables
+
+See `defaults/main.yml` for all configurable options including:
+
+* VM resources (CPU, memory, disk)
+* OpenShift version
+* Network configuration
+* Timeouts and installation parameters
+
+== Usage Examples
+
+=== Deploy Single SNO Cluster (Minimal Configuration)
+
+[source,bash]
+----
+ansible-playbook deploy_workload.yml \
+  -e "ACTION=provision" \
+  -e "ocp4_workload_agent_sno_vms_username=testuser1"
+----
+
+The workload will automatically:
+* Extract pull secret from the hub cluster
+* Generate or use SSH key at `~/.ssh/id_rsa.pub`
+* Detect base domain from cluster ingress
+
+=== Deploy Multi-User Workshop (10 SNO Clusters)
+
+[source,bash]
+----
+ansible-playbook deploy_workload.yml \
+  -e "ACTION=provision" \
+  -e "ocp4_workload_agent_sno_vms_user_count=10"
+----
+
+=== Deploy with Custom Configuration
+
+[source,bash]
+----
+ansible-playbook deploy_workload.yml \
+  -e "ACTION=provision" \
+  -e "ocp4_workload_agent_sno_vms_username=testuser1" \
+  -e "ocp4_workload_agent_sno_vms_pullsecret='$(cat pull-secret.json)'" \
+  -e "ocp4_workload_agent_sno_vms_ssh_public_key='$(cat ~/.ssh/id_rsa.pub)'" \
+  -e "ocp4_workload_agent_sno_vms_base_domain=custom.example.com"
+----
+
+=== Remove Workload
+
+[source,bash]
+----
+ansible-playbook deploy_workload.yml \
+  -e "ACTION=destroy" \
+  -e "ocp4_workload_agent_sno_vms_username=testuser1"
+----
+
+== Deployment Timeline
+
+* Prerequisites installation: 15-30 minutes (if not already installed)
+* Per-cluster VM creation: 5-10 minutes
+* Per-cluster SNO installation: 45-60 minutes
+* Total for 10-cluster workshop: ~90-120 minutes
+
+== Verification
+
+[source,bash]
+----
+# Check VMs
+oc get vm -n agent-sno-vms
+
+# Check Agents
+oc get agent -n agent-sno-vms
+
+# Check cluster deployments
+oc get clusterdeployment -n agent-sno-vms
+
+# Check installation progress
+oc get agentclusterinstall -n agent-sno-vms
+
+# Extract kubeconfig
+oc extract secret/sno-user1-admin-kubeconfig -n agent-sno-vms --to=-
+----
+
+== Troubleshooting
+
+=== Agent not discovered
+
+Check VM console to verify it booted from ISO:
+
+[source,bash]
+----
+virtctl console sno-user1-master-0 -n agent-sno-vms
+----
+
+=== Installation stuck
+
+Check AgentClusterInstall status:
+
+[source,bash]
+----
+oc get agentclusterinstall sno-user1 -n agent-sno-vms -o yaml
+----
+
+== Related Roles
+
+* `ocp4_workload_openshift_virtualization` - Install CNV standalone
+* `ocp4_workload_rhacm` - Install RHACM standalone
+* `ocp4_workload_agent_compact_vms` - Deploy 3-node compact clusters
+
+== References
+
+* GitHub Issue: https://github.com/agnosticd/core_workloads/issues/120
+* RHACM Agent-based Installation: https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.11/html/clusters/cluster_mce_overview#agent-based-installer

@@ -1,0 +1,73 @@
+---
+# -------------------------------------------------------------------------
+# Deploy SNO clusters as VMs via RHACM Agent-based installation
+# -------------------------------------------------------------------------
+
+- name: Auto-detect cluster configuration
+  ansible.builtin.include_tasks:
+    file: pre_workload.yml
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+    - ocp4_workload_agent_sno_vms_username | length > 0 or ocp4_workload_agent_sno_vms_user_count | length > 0
+    fail_msg: "Must set either username or user_count. See defaults/main.yml for configuration."
+
+- name: Install prerequisites
+  ansible.builtin.include_tasks:
+    file: install_prerequisites.yml
+
+- name: Build cluster list for single user
+  ansible.builtin.set_fact:
+    _ocp4_workload_agent_sno_vms_clusters: >-
+      {{ _ocp4_workload_agent_sno_vms_clusters | default([]) + [{
+        'name': 'sno-' + ocp4_workload_agent_sno_vms_username,
+        'username': ocp4_workload_agent_sno_vms_username
+      }] }}
+  when: ocp4_workload_agent_sno_vms_username | length > 0
+
+- name: Build cluster list for multi-user workshop
+  ansible.builtin.set_fact:
+    _ocp4_workload_agent_sno_vms_clusters: >-
+      {{ _ocp4_workload_agent_sno_vms_clusters | default([]) + [{
+        'name': 'sno-' + ocp4_workload_agent_sno_vms_user_base + item | string,
+        'username': ocp4_workload_agent_sno_vms_user_base + item | string
+      }] }}
+  loop: "{{ range(1, ocp4_workload_agent_sno_vms_user_count | int + 1) | list }}"
+  when: ocp4_workload_agent_sno_vms_user_count | length > 0
+
+- name: Display cluster list
+  ansible.builtin.debug:
+    msg: >-
+      Will create {{ _ocp4_workload_agent_sno_vms_clusters | length }} SNO cluster(s):
+      {{ _ocp4_workload_agent_sno_vms_clusters | map(attribute='name') | list }}
+
+- name: Create namespace for SNO clusters
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+        labels:
+          workload: agent-sno-vms
+          workshop: "{{ ocp4_workload_agent_sno_vms_workshop_name }}"
+
+- name: Create SNO clusters
+  ansible.builtin.include_tasks:
+    file: create_cluster.yml
+  loop: "{{ _ocp4_workload_agent_sno_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+  vars:
+    _cluster_name: "{{ _cluster_item.name }}"
+    _username: "{{ _cluster_item.username }}"
+
+- name: Monitor installation progress
+  ansible.builtin.include_tasks:
+    file: wait_for_installation.yml
+
+- name: Report access information
+  ansible.builtin.include_tasks:
+    file: report_info.yml

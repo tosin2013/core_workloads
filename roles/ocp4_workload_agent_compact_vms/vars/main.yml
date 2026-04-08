@@ -1,0 +1,5 @@
+---
+# Internal variables - do not modify
+
+# Cluster list (computed from username or user_count)
+_ocp4_workload_agent_compact_vms_clusters: []

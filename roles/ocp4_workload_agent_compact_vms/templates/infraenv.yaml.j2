@@ -1,0 +1,21 @@
+apiVersion: agent-install.openshift.io/v1beta1
+kind: InfraEnv
+metadata:
+  name: infraenv-{{ _cluster_name }}
+  namespace: {{ ocp4_workload_agent_compact_vms_namespace }}
+  labels:
+    cluster-name: {{ _cluster_name }}
+    workload: agent-compact-vms
+    workshop: {{ ocp4_workload_agent_compact_vms_workshop_name }}
+spec:
+  clusterRef:
+    name: {{ _cluster_name }}
+    namespace: {{ ocp4_workload_agent_compact_vms_namespace }}
+  agentLabels:
+    cluster-name: {{ _cluster_name }}
+  pullSecretRef:
+    name: pullsecret-{{ _cluster_name }}
+  sshAuthorizedKey: {{ ocp4_workload_agent_compact_vms_ssh_public_key }}
+  nmStateConfigLabelSelector:
+    matchLabels:
+      cluster-name: {{ _cluster_name }}

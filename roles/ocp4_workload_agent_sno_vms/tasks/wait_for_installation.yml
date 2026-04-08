@@ -1,0 +1,28 @@
+---
+# -------------------------------------------------------------------------
+# Monitor installation progress for all clusters
+# -------------------------------------------------------------------------
+
+- name: Wait for all cluster installations to complete
+  kubernetes.core.k8s_info:
+    api_version: extensions.hive.openshift.io/v1beta1
+    kind: AgentClusterInstall
+    name: "{{ _cluster_item.name }}"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+  register: r_aci
+  retries: "{{ (ocp4_workload_agent_sno_vms_installation_timeout | int / 30) | int }}"
+  delay: 30
+  until:
+  - r_aci.resources | length > 0
+  - r_aci.resources[0].status is defined
+  - r_aci.resources[0].status.conditions is defined
+  - r_aci.resources[0].status.conditions | selectattr('type', 'equalto', 'Completed') | list | length > 0
+  - (r_aci.resources[0].status.conditions | selectattr('type', 'equalto', 'Completed') | first).status == "True"
+  loop: "{{ _ocp4_workload_agent_sno_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+    label: "{{ _cluster_item.name }}"
+
+- name: All cluster installations completed
+  ansible.builtin.debug:
+    msg: "All {{ _ocp4_workload_agent_sno_vms_clusters | length }} SNO cluster(s) have been installed successfully"

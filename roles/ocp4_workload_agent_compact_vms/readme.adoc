@@ -1,0 +1,116 @@
+= ocp4_workload_agent_compact_vms - Deploy 3-node compact clusters as VMs via RHACM Agent installation
+
+== Overview
+
+This workload deploys 3-node compact OpenShift clusters as VirtualMachines on OpenShift Virtualization using RHACM Agent-based installation. It is designed for workshop and lab environments where cost-effective multi-cluster demonstrations are needed.
+
+Each compact cluster consists of 3 master nodes (schedulable, no separate workers), providing high availability while minimizing resource consumption.
+
+== Prerequisites
+
+* OpenShift 4.12+ cluster with cluster-admin access
+* Sufficient resources for VMs (12 cores / 48Gi memory per compact cluster - 3 nodes × 4c/16Gi each)
+* Storage class available for VM disks
+
+The workload will automatically install:
+
+* OpenShift Virtualization (CNV) operator if not present
+* Red Hat Advanced Cluster Management (RHACM) if not present
+
+== Key Features
+
+* **Single or multi-user workshops**: Deploy one compact cluster or multiple clusters for workshop users
+* **Automatic Agent discovery**: VMs boot from InfraEnv ISO and auto-register as Agents
+* **Dynamic network detection**: Machine network CIDR auto-detected from Agent inventory
+* **Complete automation**: End-to-end cluster deployment with minimal configuration
+* **High availability**: 3 control plane nodes provide HA without separate workers
+
+== Required Variables
+
+[source,yaml]
+----
+# User configuration (required - one of these)
+ocp4_workload_agent_compact_vms_username: "user1"  # Single user
+
+# OR
+ocp4_workload_agent_compact_vms_user_count: 10     # Multi-user workshop
+ocp4_workload_agent_compact_vms_user_base: "user"
+----
+
+== Auto-Detected Configuration
+
+The following values are automatically extracted from the hub cluster if not provided:
+
+* **Pull secret**: Extracted from `openshift-config/pull-secret`
+* **SSH key**: Uses or generates `~/.ssh/id_rsa.pub`
+* **Base domain**: Derived from cluster ingress configuration
+
+You can override any of these by explicitly setting them.
+
+== Usage Examples
+
+=== Deploy Single Compact Cluster (Minimal Configuration)
+
+[source,bash]
+----
+ansible-playbook deploy_workload.yml \
+  -e "ACTION=provision" \
+  -e "ocp4_workload_agent_compact_vms_username=testuser1"
+----
+
+=== Deploy Multi-User Workshop (5 Compact Clusters)
+
+[source,bash]
+----
+ansible-playbook deploy_workload.yml \
+  -e "ACTION=provision" \
+  -e "ocp4_workload_agent_compact_vms_user_count=5"
+----
+
+See `defaults/main.yml` for all configurable options.
+
+== Comparison: Compact vs SNO
+
+|===
+|Aspect |Compact (this role) |SNO
+
+|Nodes per cluster
+|3 (all masters)
+|1 (single master)
+
+|High Availability
+|✅ Yes
+|❌ No
+
+|Resources per cluster
+|12 cores / 48Gi
+|8 cores / 32Gi
+
+|Installation time
+|60-90 min
+|45-60 min
+
+|Use cases
+|HA demos, production-like
+|Edge, dev, cost-optimized
+|===
+
+== Verification
+
+[source,bash]
+----
+# Check VMs (should see 3 per cluster)
+oc get vm -n agent-compact-vms
+
+# Check Agents (should see 3 per cluster)
+oc get agent -n agent-compact-vms
+
+# Monitor installation progress
+oc get agentclusterinstall -n agent-compact-vms -w
+----
+
+== Related Roles
+
+* `ocp4_workload_agent_sno_vms` - Deploy single-node OpenShift clusters
+* `ocp4_workload_openshift_virtualization` - Install CNV standalone
+* `ocp4_workload_rhacm` - Install RHACM standalone

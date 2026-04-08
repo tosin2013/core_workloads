@@ -1,0 +1,102 @@
+---
+# -------------------------------------------------------------------------
+# Auto-detect cluster configuration if not provided by user
+# -------------------------------------------------------------------------
+
+- name: Extract pull secret from hub cluster
+  when: ocp4_workload_agent_compact_vms_pullsecret | length == 0
+  block:
+  - name: Get pull secret from openshift-config namespace
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Secret
+      name: pull-secret
+      namespace: openshift-config
+    register: r_cluster_pull_secret
+
+  - name: Set pull secret from cluster
+    ansible.builtin.set_fact:
+      ocp4_workload_agent_compact_vms_pullsecret: "{{ r_cluster_pull_secret.resources[0].data['.dockerconfigjson'] | b64decode }}"
+    when:
+    - r_cluster_pull_secret.resources | length > 0
+    - r_cluster_pull_secret.resources[0].data['.dockerconfigjson'] is defined
+
+  - name: Display pull secret source
+    ansible.builtin.debug:
+      msg: "Using pull secret extracted from hub cluster (openshift-config/pull-secret)"
+
+- name: Extract base domain from hub cluster
+  when: ocp4_workload_agent_compact_vms_base_domain == "example.com"
+  block:
+  - name: Get cluster ingress domain
+    kubernetes.core.k8s_info:
+      api_version: config.openshift.io/v1
+      kind: Ingress
+      name: cluster
+    register: r_cluster_ingress
+
+  - name: Calculate base domain from ingress
+    ansible.builtin.set_fact:
+      ocp4_workload_agent_compact_vms_base_domain: "{{ r_cluster_ingress.resources[0].spec.domain | regex_replace('^apps\\.', '') }}"
+    when:
+    - r_cluster_ingress.resources | length > 0
+    - r_cluster_ingress.resources[0].spec.domain is defined
+
+  - name: Display base domain source
+    ansible.builtin.debug:
+      msg: "Using base domain extracted from hub cluster: {{ ocp4_workload_agent_compact_vms_base_domain }}"
+
+- name: Generate or use SSH key
+  when: ocp4_workload_agent_compact_vms_ssh_public_key | length == 0
+  block:
+  - name: Check if SSH key exists
+    ansible.builtin.stat:
+      path: "{{ ansible_env.HOME }}/.ssh/id_rsa.pub"
+    register: r_ssh_key
+
+  - name: Generate SSH key if not present
+    when: not r_ssh_key.stat.exists
+    block:
+    - name: Create .ssh directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.ssh"
+        state: directory
+        mode: "0700"
+
+    - name: Generate SSH keypair using ssh-keygen
+      ansible.builtin.command:
+        cmd: ssh-keygen -t rsa -b 4096 -f {{ ansible_env.HOME }}/.ssh/id_rsa -N '' -C "AgnosticD SNO Workload"
+        creates: "{{ ansible_env.HOME }}/.ssh/id_rsa"
+
+    - name: Display SSH key generation
+      ansible.builtin.debug:
+        msg: "Generated new SSH keypair at {{ ansible_env.HOME }}/.ssh/id_rsa"
+
+  - name: Read SSH public key
+    ansible.builtin.slurp:
+      src: "{{ ansible_env.HOME }}/.ssh/id_rsa.pub"
+    register: r_ssh_pub_key
+
+  - name: Set SSH public key
+    ansible.builtin.set_fact:
+      ocp4_workload_agent_compact_vms_ssh_public_key: "{{ r_ssh_pub_key.content | b64decode | trim }}"
+
+  - name: Display SSH key source
+    ansible.builtin.debug:
+      msg: "Using SSH public key from {{ ansible_env.HOME }}/.ssh/id_rsa.pub"
+
+- name: Validate configuration
+  ansible.builtin.assert:
+    that:
+    - ocp4_workload_agent_compact_vms_pullsecret | length > 0
+    - ocp4_workload_agent_compact_vms_ssh_public_key | length > 0
+    - ocp4_workload_agent_compact_vms_base_domain | length > 0
+    - ocp4_workload_agent_compact_vms_base_domain != "example.com"
+    fail_msg: "Could not auto-detect required configuration. Please provide manually."
+
+- name: Display final configuration
+  ansible.builtin.debug:
+    msg:
+    - "Pull secret: {{ 'Configured (' + (ocp4_workload_agent_compact_vms_pullsecret | length | string) + ' chars)' }}"
+    - "SSH key: {{ ocp4_workload_agent_compact_vms_ssh_public_key.split()[0] }} ..."
+    - "Base domain: {{ ocp4_workload_agent_compact_vms_base_domain }}"

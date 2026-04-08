@@ -1,0 +1,110 @@
+---
+# -------------------------------------------------------------------------
+# Remove compact clusters and cleanup resources
+# -------------------------------------------------------------------------
+
+- name: Build cluster list for cleanup (single user)
+  ansible.builtin.set_fact:
+    _ocp4_workload_agent_compact_vms_clusters: >-
+      {{ _ocp4_workload_agent_compact_vms_clusters | default([]) + [{
+        'name': 'compact-' + ocp4_workload_agent_compact_vms_username,
+        'username': ocp4_workload_agent_compact_vms_username
+      }] }}
+  when: ocp4_workload_agent_compact_vms_username | length > 0
+
+- name: Build cluster list for cleanup (multi-user)
+  ansible.builtin.set_fact:
+    _ocp4_workload_agent_compact_vms_clusters: >-
+      {{ _ocp4_workload_agent_compact_vms_clusters | default([]) + [{
+        'name': 'compact-' + ocp4_workload_agent_compact_vms_user_base + item | string,
+        'username': ocp4_workload_agent_compact_vms_user_base + item | string
+      }] }}
+  loop: "{{ range(1, ocp4_workload_agent_compact_vms_user_count | int + 1) | list }}"
+  when: ocp4_workload_agent_compact_vms_user_count | length > 0
+
+- name: Delete ClusterDeployments
+  kubernetes.core.k8s:
+    state: absent
+    api_version: hive.openshift.io/v1
+    kind: ClusterDeployment
+    name: "{{ _cluster_item.name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  loop: "{{ _ocp4_workload_agent_compact_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+    label: "{{ _cluster_item.name }}"
+  when: _ocp4_workload_agent_compact_vms_clusters | length > 0
+  failed_when: false
+
+- name: Wait for ClusterDeployments to be deleted
+  kubernetes.core.k8s_info:
+    api_version: hive.openshift.io/v1
+    kind: ClusterDeployment
+    name: "{{ _cluster_item.name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  register: r_cd_deleted
+  retries: 30
+  delay: 10
+  until: r_cd_deleted.resources | length == 0
+  loop: "{{ _ocp4_workload_agent_compact_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+    label: "{{ _cluster_item.name }}"
+  when: _ocp4_workload_agent_compact_vms_clusters | length > 0
+  failed_when: false
+
+- name: Delete VirtualMachines (all 3 nodes per cluster)
+  kubernetes.core.k8s:
+    state: absent
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_item.name }}-{{ _node_name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  loop: "{{ _ocp4_workload_agent_compact_vms_clusters | product(['master-0', 'master-1', 'master-2']) | list }}"
+  loop_control:
+    loop_var: _vm_item
+  vars:
+    _cluster_item: "{{ _vm_item[0] }}"
+    _node_name: "{{ _vm_item[1] }}"
+  when: _ocp4_workload_agent_compact_vms_clusters | length > 0
+  failed_when: false
+
+- name: Delete InfraEnvs
+  kubernetes.core.k8s:
+    state: absent
+    api_version: agent-install.openshift.io/v1beta1
+    kind: InfraEnv
+    name: "infraenv-{{ _cluster_item.name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  loop: "{{ _ocp4_workload_agent_compact_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+    label: "{{ _cluster_item.name }}"
+  when: _ocp4_workload_agent_compact_vms_clusters | length > 0
+  failed_when: false
+
+- name: Delete pull secrets
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: "pullsecret-{{ _cluster_item.name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  loop: "{{ _ocp4_workload_agent_compact_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+    label: "{{ _cluster_item.name }}"
+  when: _ocp4_workload_agent_compact_vms_clusters | length > 0
+  failed_when: false
+
+- name: Delete namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  failed_when: false
+
+- name: Cleanup complete
+  ansible.builtin.debug:
+    msg: "compact cluster resources have been removed"

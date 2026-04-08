@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: ocp4_workload_agent_compact_vms
+  author: Red Hat
+  description: |
+    Deploy 3-node compact OpenShift clusters as VirtualMachines on OpenShift Virtualization
+    using RHACM Agent-based installation for workshop/lab environments
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms: []
+  galaxy_tags:
+  - ocp
+  - openshift
+  - rhacm
+  - virtualization
+  - compact
+  - agent
+dependencies: []

@@ -1,0 +1,65 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: {{ _cluster_name }}-master-0
+  namespace: {{ ocp4_workload_agent_sno_vms_namespace }}
+  labels:
+    cluster-name: {{ _cluster_name }}
+    workload: agent-sno-vms
+    workshop: {{ ocp4_workload_agent_sno_vms_workshop_name }}
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        cluster-name: {{ _cluster_name }}
+        node-role: master
+    spec:
+      domain:
+        cpu:
+          cores: {{ ocp4_workload_agent_sno_vms_vcpu }}
+          sockets: 1
+          threads: 1
+        devices:
+          disks:
+          - name: rootdisk
+            bootOrder: 2
+            disk:
+              bus: virtio
+          - name: installiso
+            bootOrder: 1
+            cdrom:
+              bus: sata
+          interfaces:
+          - name: default
+            masquerade: {}
+            model: virtio
+        memory:
+          guest: {{ ocp4_workload_agent_sno_vms_memory }}
+        resources:
+          requests:
+            memory: {{ ocp4_workload_agent_sno_vms_memory }}
+      networks:
+      - name: default
+        pod: {}
+      volumes:
+      - name: rootdisk
+        dataVolume:
+          name: {{ _cluster_name }}-master-0-rootdisk
+      - name: installiso
+        containerDisk:
+          image: {{ _iso_download_url }}
+  dataVolumeTemplates:
+  - metadata:
+      name: {{ _cluster_name }}-master-0-rootdisk
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ ocp4_workload_agent_sno_vms_disk_size }}
+        storageClassName: {{ ocp4_workload_agent_sno_vms_storage_class }}
+        volumeMode: Block
+      source:
+        blank: {}

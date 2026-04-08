@@ -1,0 +1,31 @@
+---
+# -------------------------------------------------------------------------
+# Report access information for deployed clusters
+# -------------------------------------------------------------------------
+
+- name: Extract and display cluster access information
+  when: _cluster_item is defined
+  loop: "{{ _ocp4_workload_agent_compact_vms_clusters }}"
+  loop_control:
+    loop_var: _cluster_item
+    label: "{{ _cluster_item.name }}"
+  block:
+  - name: Get kubeadmin password for {{ _cluster_item.name }}
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Secret
+      name: "{{ _cluster_item.name }}-admin-password"
+      namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+    register: r_admin_password
+    failed_when: false
+
+  - name: Display cluster access information for {{ _cluster_item.name }}
+    agnosticd.core.agnosticd_user_info:
+      msg: |
+        Compact Cluster: {{ _cluster_item.name }}
+        Username: {{ _cluster_item.username }}
+        Console URL: https://console-openshift-console.apps.{{ _cluster_item.name }}.{{ ocp4_workload_agent_compact_vms_base_domain }}
+        API URL: https://api.{{ _cluster_item.name }}.{{ ocp4_workload_agent_compact_vms_base_domain }}:6443
+        Kubeadmin Password: {{ r_admin_password.resources[0].data.password | b64decode if r_admin_password.resources | length > 0 else 'pending' }}
+        Kubeconfig Secret: {{ _cluster_item.name }}-admin-kubeconfig (in namespace {{ ocp4_workload_agent_compact_vms_namespace }})
+    when: r_admin_password.resources | length > 0
