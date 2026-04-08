@@ -47,8 +47,8 @@ spec:
         dataVolume:
           name: {{ _cluster_name }}-master-0-rootdisk
       - name: installiso
-        containerDisk:
-          image: {{ _iso_download_url }}
+        dataVolume:
+          name: {{ _cluster_name }}-master-0-installiso
   dataVolumeTemplates:
   - metadata:
       name: {{ _cluster_name }}-master-0-rootdisk
@@ -63,3 +63,16 @@ spec:
         volumeMode: Block
       source:
         blank: {}
+  - metadata:
+      name: {{ _cluster_name }}-master-0-installiso
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+        storageClassName: {{ ocp4_workload_agent_sno_vms_storage_class }}
+      source:
+        http:
+          url: {{ _iso_download_url }}
