@@ -131,6 +131,33 @@
   ansible.builtin.debug:
     msg: "Using machine network CIDR: {{ _machine_network_cidr }}"
 
+- name: Remove ISO cdrom from VM for {{ _cluster_name }}
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        template:
+          spec:
+            domain:
+              devices:
+                disks:
+                - name: rootdisk
+                  bootOrder: 1
+                  disk:
+                    bus: virtio
+            volumes:
+            - name: rootdisk
+              dataVolume:
+                name: "{{ _cluster_name }}-master-0-rootdisk"
+
+- name: Wait for VM to restart after ISO removal for {{ _cluster_name }}
+  ansible.builtin.pause:
+    seconds: 10
+
 - name: Create AgentClusterInstall for {{ _cluster_name }}
   kubernetes.core.k8s:
     state: present
