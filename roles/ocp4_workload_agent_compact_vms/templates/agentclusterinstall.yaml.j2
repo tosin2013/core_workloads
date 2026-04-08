@@ -11,7 +11,7 @@ spec:
   clusterDeploymentRef:
     name: {{ _cluster_name }}
   imageSetRef:
-    name: openshift-v{{ ocp4_workload_agent_compact_vms_openshift_version }}
+    name: img{{ ocp4_workload_agent_compact_vms_openshift_version }}.0-x86-64-appsub
   provisionRequirements:
     controlPlaneAgents: 3
     workerAgents: 0
