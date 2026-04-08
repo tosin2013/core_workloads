@@ -78,7 +78,7 @@ ocp4_workload_agent_sno_vms_cnv_channel: "stable"
 ocp4_workload_agent_sno_vms_install_rhacm: true
 
 # RHACM operator channel
-ocp4_workload_agent_sno_vms_rhacm_channel: "release-2.14"
+ocp4_workload_agent_sno_vms_rhacm_channel: "release-2.16"
 
 # ===========================
 # Features
