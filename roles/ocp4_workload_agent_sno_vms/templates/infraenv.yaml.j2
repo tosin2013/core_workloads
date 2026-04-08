@@ -8,9 +8,6 @@ metadata:
     workload: agent-sno-vms
     workshop: {{ ocp4_workload_agent_sno_vms_workshop_name }}
 spec:
-  clusterRef:
-    name: {{ _cluster_name }}
-    namespace: {{ ocp4_workload_agent_sno_vms_namespace }}
   agentLabels:
     cluster-name: {{ _cluster_name }}
   pullSecretRef:
