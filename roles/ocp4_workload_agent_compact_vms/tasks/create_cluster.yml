@@ -158,6 +158,20 @@
     namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
     definition:
       spec:
+        dataVolumeTemplates:
+        - metadata:
+            name: "{{ _cluster_name }}-{{ _node_item }}-rootdisk"
+          spec:
+            pvc:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: "{{ ocp4_workload_agent_compact_vms_disk_size }}"
+              storageClassName: "{{ ocp4_workload_agent_compact_vms_storage_class }}"
+              volumeMode: Block
+            source:
+              blank: {}
         template:
           spec:
             domain:
