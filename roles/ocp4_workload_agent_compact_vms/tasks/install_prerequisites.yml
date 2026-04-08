@@ -138,6 +138,68 @@
     - r_mch.resources[0].status.phase is defined
     - r_mch.resources[0].status.phase == "Running"
 
+- name: Enable Central Infrastructure Management (CIM)
+  when:
+  - ocp4_workload_agent_compact_vms_install_rhacm | bool
+  block:
+  - name: Wait for AgentServiceConfig CRD to be available
+    kubernetes.core.k8s_info:
+      api_version: apiextensions.k8s.io/v1
+      kind: CustomResourceDefinition
+      name: agentserviceconfigs.agent-install.openshift.io
+    register: r_asc_crd
+    retries: 30
+    delay: 10
+    until:
+    - r_asc_crd.resources | length > 0
+
+  - name: Create AgentServiceConfig for CIM
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: agent-install.openshift.io/v1beta1
+        kind: AgentServiceConfig
+        metadata:
+          name: agent
+        spec:
+          databaseStorage:
+            storageClassName: "{{ ocp4_workload_agent_compact_vms_storage_class }}"
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+          filesystemStorage:
+            storageClassName: "{{ ocp4_workload_agent_compact_vms_storage_class }}"
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 20Gi
+          imageStorage:
+            storageClassName: "{{ ocp4_workload_agent_compact_vms_storage_class }}"
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 50Gi
+
+  - name: Wait for assisted-service deployment to be ready
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      kind: Deployment
+      name: assisted-service
+      namespace: multicluster-engine
+    register: r_assisted_service
+    retries: 60
+    delay: 10
+    until:
+    - r_assisted_service.resources | length > 0
+    - r_assisted_service.resources[0].status is defined
+    - r_assisted_service.resources[0].status.conditions is defined
+    - r_assisted_service.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | list | length > 0
+    - (r_assisted_service.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | first).status == "True"
+
 - name: Prerequisites installation complete
   ansible.builtin.debug:
-    msg: "OpenShift Virtualization and RHACM are ready"
+    msg: "OpenShift Virtualization, RHACM, and CIM are ready"
