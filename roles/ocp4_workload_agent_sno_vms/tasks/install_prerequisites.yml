@@ -161,6 +161,11 @@
         kind: AgentServiceConfig
         metadata:
           name: agent
+          annotations:
+            # Disable wildcard DNS validation to support user-managed networking
+            # Reference: https://github.com/okd-project/okd/discussions/2112
+            # Documentation: https://docs.redhat.com/en/documentation/assisted_installer_for_openshift_container_platform/2026/html-single/installing_openshift_container_platform_with_the_assisted_installer/index
+            agentserviceconfig.agent-install.openshift.io/disabled-validations: dns-wildcard-not-configured
         spec:
           databaseStorage:
             storageClassName: "{{ ocp4_workload_agent_sno_vms_storage_class }}"

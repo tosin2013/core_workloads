@@ -35,9 +35,9 @@
       name: cluster
     register: r_cluster_ingress
 
-  - name: Use ingress domain as base domain (for Route-based API access)
+  - name: Calculate base domain from ingress domain
     ansible.builtin.set_fact:
-      ocp4_workload_agent_compact_vms_base_domain: "{{ r_cluster_ingress.resources[0].spec.domain }}"
+      ocp4_workload_agent_compact_vms_base_domain: "{{ r_cluster_ingress.resources[0].spec.domain | regex_replace('^apps\\.', '') }}"
     when:
     - r_cluster_ingress.resources | length > 0
     - r_cluster_ingress.resources[0].spec.domain is defined
