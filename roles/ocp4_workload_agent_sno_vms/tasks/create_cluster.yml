@@ -175,9 +175,15 @@
               dataVolume:
                 name: "{{ _cluster_name }}-master-0-rootdisk"
 
-- name: Wait for VM to restart after ISO removal for {{ _cluster_name }}
+- name: Restart VM to apply new boot configuration for {{ _cluster_name }}
+  ansible.builtin.command:
+    cmd: "virtctl restart {{ _cluster_name }}-master-0 -n {{ ocp4_workload_agent_sno_vms_namespace }}"
+  register: r_vm_restart
+  changed_when: r_vm_restart.rc == 0
+
+- name: Wait for VM to restart and boot from disk for {{ _cluster_name }}
   ansible.builtin.pause:
-    seconds: 10
+    seconds: 30
 
 - name: Create AgentClusterInstall for {{ _cluster_name }}
   kubernetes.core.k8s:

@@ -199,9 +199,21 @@
   loop_control:
     loop_var: _node_item
 
-- name: Wait for VMs to restart after ISO removal for {{ _cluster_name }}
+- name: "Restart VMs to apply new boot configuration: {{ _cluster_name }}"
+  ansible.builtin.command:
+    cmd: "virtctl restart {{ _cluster_name }}-{{ _node_item }} -n {{ ocp4_workload_agent_compact_vms_namespace }}"
+  register: r_vm_restart
+  changed_when: r_vm_restart.rc == 0
+  loop:
+  - master-0
+  - master-1
+  - master-2
+  loop_control:
+    loop_var: _node_item
+
+- name: "Wait for all VMs to restart and boot from disk: {{ _cluster_name }}"
   ansible.builtin.pause:
-    seconds: 10
+    seconds: 30
 
 - name: Create AgentClusterInstall for {{ _cluster_name }}
   kubernetes.core.k8s:
