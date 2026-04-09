@@ -199,11 +199,45 @@
   loop_control:
     loop_var: _node_item
 
-- name: "Restart VMs to apply new boot configuration: {{ _cluster_name }}"
-  ansible.builtin.command:
-    cmd: "virtctl restart {{ _cluster_name }}-{{ _node_item }} -n {{ ocp4_workload_agent_compact_vms_namespace }}"
-  register: r_vm_restart
-  changed_when: r_vm_restart.rc == 0
+- name: "Stop VMs to apply new boot configuration: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-{{ _node_item }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+    definition:
+      spec:
+        running: false
+  loop:
+  - master-0
+  - master-1
+  - master-2
+  loop_control:
+    loop_var: _node_item
+
+- name: "Wait for all VMIs to stop: {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: kubevirt.io/v1
+    kind: VirtualMachineInstance
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+    label_selectors:
+    - "cluster-name={{ _cluster_name }}"
+  register: r_vmis_stopped
+  retries: 30
+  delay: 2
+  until: r_vmis_stopped.resources | length == 0
+
+- name: "Start VMs with new boot configuration: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-{{ _node_item }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+    definition:
+      spec:
+        running: true
   loop:
   - master-0
   - master-1

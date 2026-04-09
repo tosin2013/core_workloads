@@ -176,10 +176,37 @@
                 name: "{{ _cluster_name }}-master-0-rootdisk"
 
 - name: Restart VM to apply new boot configuration for {{ _cluster_name }}
-  ansible.builtin.command:
-    cmd: "virtctl restart {{ _cluster_name }}-master-0 -n {{ ocp4_workload_agent_sno_vms_namespace }}"
-  register: r_vm_restart
-  changed_when: r_vm_restart.rc == 0
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        running: false
+
+- name: Wait for VM to stop for {{ _cluster_name }}
+  kubernetes.core.k8s_info:
+    api_version: kubevirt.io/v1
+    kind: VirtualMachineInstance
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+  register: r_vmi_stopped
+  retries: 30
+  delay: 2
+  until: r_vmi_stopped.resources | length == 0
+
+- name: Start VM with new boot configuration for {{ _cluster_name }}
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        running: true
 
 - name: Wait for VM to restart and boot from disk for {{ _cluster_name }}
   ansible.builtin.pause:
