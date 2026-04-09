@@ -189,6 +189,35 @@
     state: present
     template: clusterdeployment.yaml.j2
 
+- name: "Bind Agent to ClusterDeployment for {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    name: "{{ _agent_name }}"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        clusterDeploymentName:
+          name: "{{ _cluster_name }}"
+          namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+
+- name: "Wait for Agent to bind to cluster {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    name: "{{ _agent_name }}"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+  register: r_agent_bound
+  retries: 10
+  delay: 5
+  until:
+  - r_agent_bound.resources | length > 0
+  - r_agent_bound.resources[0].status is defined
+  - r_agent_bound.resources[0].status.clusterDeploymentName is defined
+  - r_agent_bound.resources[0].status.clusterDeploymentName.name is defined
+  - r_agent_bound.resources[0].status.clusterDeploymentName.name == _cluster_name
+
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:
     msg: "SNO cluster {{ _cluster_name }} is now provisioning"
