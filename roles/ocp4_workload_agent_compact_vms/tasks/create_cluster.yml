@@ -314,6 +314,32 @@
   ansible.builtin.pause:
     seconds: 30
 
+- name: "Wait for AgentClusterInstall to populate API VIP: {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: extensions.hive.openshift.io/v1beta1
+    kind: AgentClusterInstall
+    name: "{{ _cluster_name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  register: r_aci_vip
+  retries: 60
+  delay: 5
+  until:
+  - r_aci_vip.resources | length > 0
+  - r_aci_vip.resources[0].status is defined
+  - r_aci_vip.resources[0].status.apiVIP is defined
+  - r_aci_vip.resources[0].status.apiVIP | length > 0
+
+- name: "Store API VIP for DNS configuration: {{ _cluster_name }}"
+  ansible.builtin.set_fact:
+    _ocp4_workload_agent_compact_vms_vips: >-
+      {{ _ocp4_workload_agent_compact_vms_vips | default({}) | combine({
+        _cluster_name: r_aci_vip.resources[0].status.apiVIP
+      }) }}
+
+- name: "Display cluster VIP: {{ _cluster_name }}"
+  ansible.builtin.debug:
+    msg: "Compact cluster {{ _cluster_name }} API VIP: {{ r_aci_vip.resources[0].status.apiVIP }}"
+
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:
     msg: "compact cluster {{ _cluster_name }} is now provisioning"

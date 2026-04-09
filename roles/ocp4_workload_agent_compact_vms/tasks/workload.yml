@@ -64,6 +64,13 @@
     _cluster_name: "{{ _cluster_item.name }}"
     _username: "{{ _cluster_item.username }}"
 
+- name: Configure DNS for compact clusters
+  ansible.builtin.include_tasks:
+    file: configure_dns.yml
+  when:
+  - _ocp4_workload_agent_compact_vms_vips is defined
+  - _ocp4_workload_agent_compact_vms_vips | length > 0
+
 - name: Monitor installation progress
   ansible.builtin.include_tasks:
     file: wait_for_installation.yml
