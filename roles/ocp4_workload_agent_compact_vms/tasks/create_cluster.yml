@@ -284,12 +284,12 @@
     label_selectors:
     - "cluster-name={{ _cluster_name }}"
   register: r_agents_bound
-  retries: 10
+  retries: 30
   delay: 5
   until:
   - r_agents_bound.resources | length == 3
-  - r_agents_bound.resources | selectattr('status.clusterDeploymentName.name', 'defined') | list | length == 3
-  - (r_agents_bound.resources | selectattr('status.clusterDeploymentName.name', 'equalto', _cluster_name) | list | length) == 3
+  - r_agents_bound.resources | selectattr('spec.clusterDeploymentName.name', 'defined') | list | length == 3
+  - (r_agents_bound.resources | selectattr('spec.clusterDeploymentName.name', 'equalto', _cluster_name) | list | length) == 3
 
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:

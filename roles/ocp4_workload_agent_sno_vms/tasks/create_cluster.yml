@@ -242,14 +242,14 @@
     name: "{{ _agent_name }}"
     namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
   register: r_agent_bound
-  retries: 10
+  retries: 30
   delay: 5
   until:
   - r_agent_bound.resources | length > 0
-  - r_agent_bound.resources[0].status is defined
-  - r_agent_bound.resources[0].status.clusterDeploymentName is defined
-  - r_agent_bound.resources[0].status.clusterDeploymentName.name is defined
-  - r_agent_bound.resources[0].status.clusterDeploymentName.name == _cluster_name
+  - r_agent_bound.resources[0].spec is defined
+  - r_agent_bound.resources[0].spec.clusterDeploymentName is defined
+  - r_agent_bound.resources[0].spec.clusterDeploymentName.name is defined
+  - r_agent_bound.resources[0].spec.clusterDeploymentName.name == _cluster_name
 
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:
