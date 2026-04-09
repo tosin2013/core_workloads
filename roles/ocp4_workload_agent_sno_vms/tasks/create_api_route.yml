@@ -1,0 +1,73 @@
+---
+# -------------------------------------------------------------------------
+# Create Service and Route for SNO cluster API access via hub ingress
+# Variables passed in: _cluster_name, _api_vip
+# -------------------------------------------------------------------------
+
+- name: "Create Service for API access: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ _cluster_name }}-api"
+        namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+        labels:
+          cluster-name: "{{ _cluster_name }}"
+          workload: agent-sno-vms
+      spec:
+        clusterIP: None
+        ports:
+        - name: api
+          protocol: TCP
+          port: 6443
+          targetPort: 6443
+
+- name: "Create Endpoints for API Service: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Endpoints
+      metadata:
+        name: "{{ _cluster_name }}-api"
+        namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+        labels:
+          cluster-name: "{{ _cluster_name }}"
+          workload: agent-sno-vms
+      subsets:
+      - addresses:
+        - ip: "{{ _api_vip }}"
+        ports:
+        - name: api
+          port: 6443
+          protocol: TCP
+
+- name: "Create passthrough Route for API access: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: "{{ _cluster_name }}-api"
+        namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+        labels:
+          cluster-name: "{{ _cluster_name }}"
+          workload: agent-sno-vms
+      spec:
+        host: "api-{{ _cluster_name }}.{{ ocp4_workload_agent_sno_vms_base_domain }}"
+        port:
+          targetPort: api
+        tls:
+          termination: passthrough
+          insecureEdgeTerminationPolicy: None
+        to:
+          kind: Service
+          name: "{{ _cluster_name }}-api"
+          weight: 100
+
+- name: "Display API Route URL: {{ _cluster_name }}"
+  ansible.builtin.debug:
+    msg: "API accessible via Route: https://api-{{ _cluster_name }}.{{ ocp4_workload_agent_sno_vms_base_domain }}"

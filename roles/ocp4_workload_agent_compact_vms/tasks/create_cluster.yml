@@ -340,6 +340,12 @@
   ansible.builtin.debug:
     msg: "Compact cluster {{ _cluster_name }} API VIP: {{ r_aci_vip.resources[0].status.apiVIP }}"
 
+- name: "Create API Route for external access: {{ _cluster_name }}"
+  ansible.builtin.include_tasks:
+    file: create_api_route.yml
+  vars:
+    _api_vip: "{{ r_aci_vip.resources[0].status.apiVIP }}"
+
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:
     msg: "compact cluster {{ _cluster_name }} is now provisioning"

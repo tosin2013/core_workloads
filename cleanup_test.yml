@@ -1,0 +1,62 @@
+---
+- name: Cleanup test SNO deployment
+  hosts: localhost
+  gather_facts: false
+  tasks:
+  - name: Delete ClusterDeployment
+    kubernetes.core.k8s:
+      state: absent
+      api_version: hive.openshift.io/v1
+      kind: ClusterDeployment
+      name: sno-test1
+      namespace: agent-sno-vms
+
+  - name: Delete AgentClusterInstall
+    kubernetes.core.k8s:
+      state: absent
+      api_version: extensions.hive.openshift.io/v1beta1
+      kind: AgentClusterInstall
+      name: sno-test1
+      namespace: agent-sno-vms
+
+  - name: Wait for Agents to be released
+    kubernetes.core.k8s_info:
+      api_version: agent-install.openshift.io/v1beta1
+      kind: Agent
+      namespace: agent-sno-vms
+      label_selectors:
+      - "cluster-name=sno-test1"
+    register: r_agents
+    retries: 30
+    delay: 2
+    until:
+    - r_agents.resources | length == 0 or
+      (r_agents.resources | selectattr('spec.clusterDeploymentName', 'undefined') | list | length == r_agents.resources | length)
+
+  - name: Delete VirtualMachines
+    kubernetes.core.k8s:
+      state: absent
+      api_version: kubevirt.io/v1
+      kind: VirtualMachine
+      name: sno-test1-master-0
+      namespace: agent-sno-vms
+
+  - name: Delete InfraEnv
+    kubernetes.core.k8s:
+      state: absent
+      api_version: agent-install.openshift.io/v1beta1
+      kind: InfraEnv
+      name: infraenv-sno-test1
+      namespace: agent-sno-vms
+
+  - name: Delete pull secret
+    kubernetes.core.k8s:
+      state: absent
+      api_version: v1
+      kind: Secret
+      name: pullsecret-sno-test1
+      namespace: agent-sno-vms
+
+  - name: Cleanup complete
+    ansible.builtin.debug:
+      msg: "Test deployment sno-test1 has been cleaned up"
