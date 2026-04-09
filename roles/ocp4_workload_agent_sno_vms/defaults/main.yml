@@ -94,5 +94,8 @@ ocp4_workload_agent_sno_vms_auto_register_managedcluster: true
 # Agent discovery timeout (seconds)
 ocp4_workload_agent_sno_vms_agent_discovery_timeout: 600
 
+# ISO removal timeout - wait for Agent to reach reboot stage (seconds)
+ocp4_workload_agent_sno_vms_iso_removal_timeout: 1800
+
 # Cluster installation timeout (seconds)
 ocp4_workload_agent_sno_vms_installation_timeout: 3600

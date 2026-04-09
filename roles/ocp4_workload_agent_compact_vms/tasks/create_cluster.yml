@@ -156,6 +156,71 @@
   ansible.builtin.debug:
     msg: "Using machine network CIDR: {{ _machine_network_cidr }}"
 
+- name: Create AgentClusterInstall for {{ _cluster_name }}
+  kubernetes.core.k8s:
+    state: present
+    template: agentclusterinstall.yaml.j2
+
+- name: Create ClusterDeployment for {{ _cluster_name }}
+  kubernetes.core.k8s:
+    state: present
+    template: clusterdeployment.yaml.j2
+
+- name: "Bind all Agents to ClusterDeployment for {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    name: "{{ _agent_item.metadata.name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+    definition:
+      spec:
+        clusterDeploymentName:
+          name: "{{ _cluster_name }}"
+          namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  loop: "{{ r_agents.resources }}"
+  loop_control:
+    loop_var: _agent_item
+    label: "{{ _agent_item.metadata.name }}"
+
+- name: "Wait for all Agents to bind to cluster {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+    label_selectors:
+    - "cluster-name={{ _cluster_name }}"
+  register: r_agents_bound
+  retries: 30
+  delay: 5
+  until:
+  - r_agents_bound.resources | length == 3
+  - r_agents_bound.resources | selectattr('spec.clusterDeploymentName.name', 'defined') | list | length == 3
+  - (r_agents_bound.resources | selectattr('spec.clusterDeploymentName.name', 'equalto', _cluster_name) | list | length) == 3
+
+- name: "Wait for all Agents installation to reach reboot stage: {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    name: "{{ _agent_item.metadata.name }}"
+    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
+  register: r_agent_progress
+  retries: "{{ (ocp4_workload_agent_compact_vms_iso_removal_timeout | default(1800) | int / 30) | int }}"
+  delay: 30
+  until:
+  - r_agent_progress.resources | length > 0
+  - r_agent_progress.resources[0].status.progress is defined
+  - r_agent_progress.resources[0].status.progress.currentStage is defined
+  - r_agent_progress.resources[0].status.progress.currentStage in ["Rebooting", "Done"]
+  loop: "{{ r_agents_bound.resources }}"
+  loop_control:
+    loop_var: _agent_item
+    label: "{{ _agent_item.metadata.name }}"
+
+- name: "Display installation progress: {{ _cluster_name }}"
+  ansible.builtin.debug:
+    msg: "All {{ r_agents_bound.resources | length }} Agents reached reboot stage"
+
 - name: "Remove ISO cdrom from all VMs: {{ _cluster_name }}"
   kubernetes.core.k8s:
     state: present
@@ -248,48 +313,6 @@
 - name: "Wait for all VMs to restart and boot from disk: {{ _cluster_name }}"
   ansible.builtin.pause:
     seconds: 30
-
-- name: Create AgentClusterInstall for {{ _cluster_name }}
-  kubernetes.core.k8s:
-    state: present
-    template: agentclusterinstall.yaml.j2
-
-- name: Create ClusterDeployment for {{ _cluster_name }}
-  kubernetes.core.k8s:
-    state: present
-    template: clusterdeployment.yaml.j2
-
-- name: "Bind all Agents to ClusterDeployment for {{ _cluster_name }}"
-  kubernetes.core.k8s:
-    state: patched
-    api_version: agent-install.openshift.io/v1beta1
-    kind: Agent
-    name: "{{ _agent_item.metadata.name }}"
-    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
-    definition:
-      spec:
-        clusterDeploymentName:
-          name: "{{ _cluster_name }}"
-          namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
-  loop: "{{ r_agents.resources }}"
-  loop_control:
-    loop_var: _agent_item
-    label: "{{ _agent_item.metadata.name }}"
-
-- name: "Wait for all Agents to bind to cluster {{ _cluster_name }}"
-  kubernetes.core.k8s_info:
-    api_version: agent-install.openshift.io/v1beta1
-    kind: Agent
-    namespace: "{{ ocp4_workload_agent_compact_vms_namespace }}"
-    label_selectors:
-    - "cluster-name={{ _cluster_name }}"
-  register: r_agents_bound
-  retries: 30
-  delay: 5
-  until:
-  - r_agents_bound.resources | length == 3
-  - r_agents_bound.resources | selectattr('spec.clusterDeploymentName.name', 'defined') | list | length == 3
-  - (r_agents_bound.resources | selectattr('spec.clusterDeploymentName.name', 'equalto', _cluster_name) | list | length) == 3
 
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:

@@ -138,80 +138,6 @@
   ansible.builtin.debug:
     msg: "Using machine network CIDR: {{ _machine_network_cidr }}"
 
-- name: Remove ISO cdrom from VM for {{ _cluster_name }}
-  kubernetes.core.k8s:
-    state: present
-    api_version: kubevirt.io/v1
-    kind: VirtualMachine
-    name: "{{ _cluster_name }}-master-0"
-    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
-    definition:
-      spec:
-        dataVolumeTemplates:
-        - metadata:
-            name: "{{ _cluster_name }}-master-0-rootdisk"
-          spec:
-            pvc:
-              accessModes:
-              - ReadWriteOnce
-              resources:
-                requests:
-                  storage: "{{ ocp4_workload_agent_sno_vms_disk_size }}"
-              storageClassName: "{{ ocp4_workload_agent_sno_vms_storage_class }}"
-              volumeMode: Block
-            source:
-              blank: {}
-        template:
-          spec:
-            domain:
-              devices:
-                disks:
-                - name: rootdisk
-                  bootOrder: 1
-                  disk:
-                    bus: virtio
-            volumes:
-            - name: rootdisk
-              dataVolume:
-                name: "{{ _cluster_name }}-master-0-rootdisk"
-
-- name: Restart VM to apply new boot configuration for {{ _cluster_name }}
-  kubernetes.core.k8s:
-    state: present
-    api_version: kubevirt.io/v1
-    kind: VirtualMachine
-    name: "{{ _cluster_name }}-master-0"
-    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
-    definition:
-      spec:
-        running: false
-
-- name: Wait for VM to stop for {{ _cluster_name }}
-  kubernetes.core.k8s_info:
-    api_version: kubevirt.io/v1
-    kind: VirtualMachineInstance
-    name: "{{ _cluster_name }}-master-0"
-    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
-  register: r_vmi_stopped
-  retries: 30
-  delay: 2
-  until: r_vmi_stopped.resources | length == 0
-
-- name: Start VM with new boot configuration for {{ _cluster_name }}
-  kubernetes.core.k8s:
-    state: present
-    api_version: kubevirt.io/v1
-    kind: VirtualMachine
-    name: "{{ _cluster_name }}-master-0"
-    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
-    definition:
-      spec:
-        running: true
-
-- name: Wait for VM to restart and boot from disk for {{ _cluster_name }}
-  ansible.builtin.pause:
-    seconds: 30
-
 - name: Create AgentClusterInstall for {{ _cluster_name }}
   kubernetes.core.k8s:
     state: present
@@ -250,6 +176,101 @@
   - r_agent_bound.resources[0].spec.clusterDeploymentName is defined
   - r_agent_bound.resources[0].spec.clusterDeploymentName.name is defined
   - r_agent_bound.resources[0].spec.clusterDeploymentName.name == _cluster_name
+
+- name: "Wait for Agent installation to reach reboot stage: {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: agent-install.openshift.io/v1beta1
+    kind: Agent
+    name: "{{ _agent_name }}"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+  register: r_agent_progress
+  retries: "{{ (ocp4_workload_agent_sno_vms_iso_removal_timeout | default(1800) | int / 30) | int }}"
+  delay: 30
+  until:
+  - r_agent_progress.resources | length > 0
+  - r_agent_progress.resources[0].status.progress is defined
+  - r_agent_progress.resources[0].status.progress.currentStage is defined
+  - r_agent_progress.resources[0].status.progress.currentStage in ["Rebooting", "Done"]
+
+- name: "Display installation progress: {{ _cluster_name }}"
+  ansible.builtin.debug:
+    msg: >-
+      Agent reached stage: {{ r_agent_progress.resources[0].status.progress.currentStage }},
+      {{ r_agent_progress.resources[0].status.progress.installationPercentage | default(0) }}% complete
+
+- name: "Remove ISO cdrom from VM: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        dataVolumeTemplates:
+        - metadata:
+            name: "{{ _cluster_name }}-master-0-rootdisk"
+          spec:
+            pvc:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: "{{ ocp4_workload_agent_sno_vms_disk_size }}"
+              storageClassName: "{{ ocp4_workload_agent_sno_vms_storage_class }}"
+              volumeMode: Block
+            source:
+              blank: {}
+        template:
+          spec:
+            domain:
+              devices:
+                disks:
+                - name: rootdisk
+                  bootOrder: 1
+                  disk:
+                    bus: virtio
+            volumes:
+            - name: rootdisk
+              dataVolume:
+                name: "{{ _cluster_name }}-master-0-rootdisk"
+
+- name: "Stop VM to apply new boot configuration: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        running: false
+
+- name: "Wait for VM to stop: {{ _cluster_name }}"
+  kubernetes.core.k8s_info:
+    api_version: kubevirt.io/v1
+    kind: VirtualMachineInstance
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+  register: r_vmi_stopped
+  retries: 30
+  delay: 2
+  until: r_vmi_stopped.resources | length == 0
+
+- name: "Start VM with new boot configuration: {{ _cluster_name }}"
+  kubernetes.core.k8s:
+    state: present
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ _cluster_name }}-master-0"
+    namespace: "{{ ocp4_workload_agent_sno_vms_namespace }}"
+    definition:
+      spec:
+        running: true
+
+- name: "Wait for VM to restart and boot from disk: {{ _cluster_name }}"
+  ansible.builtin.pause:
+    seconds: 30
 
 - name: "Cluster resources created successfully: {{ _cluster_name }}"
   ansible.builtin.debug:
