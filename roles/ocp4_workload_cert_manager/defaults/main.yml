@@ -76,6 +76,12 @@ ocp4_workload_cert_manager_aws_hostedzoneid: ""
 ocp4_workload_cert_manager_gcp_project_id: "{{ gcp_project_id }}"
 ocp4_workload_cert_manager_gcp_credentials: "{{ gcp_credentials }}"
 
+# Name of the GCP Cloud DNS managed zone used for DNS01 challenges.
+# Defaults to the AgnosticD convention (dns-zone-{guid}). Override when
+# the zone does not follow that convention, e.g. GCP Open Environments
+# which use dns-zone-{sandbox-id}.
+ocp4_workload_cert_manager_gcp_hostedzone_name: "dns-zone-{{ guid }}"
+
 # ---------------------------------------------------------------
 # Settings for Azure
 # ---------------------------------------------------------------
